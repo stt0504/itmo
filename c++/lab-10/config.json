@@ -1,0 +1,14 @@
+{
+  "default_weather_days": 15,
+  "update_frequency": 1000,
+  "city_list": [
+    "Saint_Petersburg",
+    "Moscow",
+    "Berlin",
+    "Tokyo",
+    "Paris",
+    "London",
+    "New_York",
+    "Los_Angeles"
+  ]
+}
