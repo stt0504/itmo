@@ -1,0 +1,183 @@
+version: "3.8"
+
+networks:
+    aquapark:
+
+services:
+  postgres:
+    image: postgres:16.1
+    restart: always
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - MIGRATION_VERSION=0.1.0
+      - NUM_RECORDS_VISITOR=100000
+      - NUM_RECORDS_LOCKER=60
+      - NUM_RECORDS_COMMENT=100000
+      - NUM_RECORDS_EQUIPMENT=80
+      - NUM_RECORDS_RENT_OF_EQUIPMENT=100
+      - NUM_RECORDS_INSTRUCTOR=100000
+      - NUM_RECORDS_TICKET=100000
+      - NUM_RECORDS_LESSON_APPOINTMENT=100000
+      - NUM_RECORDS_ATTRACTION=1000
+      - NUM_RECORDS_APPOINTMENT=100000
+      - NUM_RECORDS_VISIT_NUMBER=100000
+      - NUM_ATTRACTION_AT_DAY=100
+      - NUM_INSTRUCTOR_AT_DAY=100
+      - NUM_ATTRACTION_SCHEDULE_DAYS=1000
+      - NUM_INSTRUCTOR_SCHEDULE_DAYS=1000
+    ports:
+      - 5432:5432
+    container_name: aquapark
+    volumes:
+      - ./init_script:/docker-entrypoint-initdb.d
+      - ./migrations:/migrations
+      - db_volume:/var/lib/postgresql/data
+    networks:
+      - aquapark
+
+  postgres-exporter:
+    image: wrouesnel/postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/postgres?sslmode=disable"
+    ports:
+      - 9187:9187
+    networks:
+      - aquapark
+    depends_on:
+      - postgres
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - aquapark
+    depends_on:
+      - postgres-exporter
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    networks:
+      - aquapark
+    depends_on:
+      - prometheus
+
+  analyze_service:
+    image: python:3.9-slim
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - QUERY_ATTEMPTS=10
+      - DAY=2024-05-19
+      - VISITOR_ID=100
+    working_dir: /scripts/analyze
+    command: >
+        sh -c "pip install psycopg2-binary && python analyze.py"
+    volumes:
+      - ./scripts/analyze/results:/scripts/analyze/results
+      - ./scripts/analyze/analyze.py:/scripts/analyze/analyze.py
+
+  backup_service:
+    image: python:3.9-slim
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - INTERVAL_HOURS=1
+      - NUM_TO_KEEP=2
+      - BACKUP_DIR=/backups
+    working_dir: /scripts
+    depends_on:
+      - postgres
+    command: >
+        /bin/bash -c "echo | apt-get update && echo | apt install -y postgresql-common && echo | /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh && echo | apt-get install -y postgresql-client-16 && python backup.py"
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.py:/scripts/backup.py
+
+  etcd1: &etcd
+    image: ${PATRONI_TEST_IMAGE:-patroni}
+    networks: [ aquapark ]
+    environment:
+        ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+        ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+        ETCD_INITIAL_CLUSTER: etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+        ETCD_INITIAL_CLUSTER_STATE: new
+        ETCD_INITIAL_CLUSTER_TOKEN: tutorial
+        ETCD_UNSUPPORTED_ARCH: arm64
+    container_name: etcd1
+    hostname: etcd1
+    command: etcd --name etcd1 --initial-advertise-peer-urls http://etcd1:2380
+
+  etcd2:
+      <<: *etcd
+      container_name: etcd2
+      hostname: etcd2
+      command: etcd --name etcd2 --initial-advertise-peer-urls http://etcd2:2380
+
+  etcd3:
+      <<: *etcd
+      container_name: etcd3
+      hostname: etcd3
+      command: etcd --name etcd3 --initial-advertise-peer-urls http://etcd3:2380
+
+  haproxy:
+      image: ${PATRONI_TEST_IMAGE:-patroni}
+      networks: [ aquapark ]
+      env_file: patroni/docker/patroni.env
+      hostname: haproxy
+      container_name: haproxy
+      ports:
+          - "5000:5000"
+          - "5001:5001"
+      command: haproxy
+      environment: &haproxy_env
+          ETCDCTL_ENDPOINTS: http://etcd1:2379,http://etcd2:2379,http://etcd3:2379
+          PATRONI_ETCD3_HOSTS: "'etcd1:2379','etcd2:2379','etcd3:2379'"
+          PATRONI_SCOPE: aquapark
+
+  patroni1:
+      image: ${PATRONI_TEST_IMAGE:-patroni}
+      networks: [ aquapark ]
+      env_file: patroni/docker/patroni.env
+      hostname: patroni1
+      container_name: patroni1
+      environment:
+          <<: *haproxy_env
+          PATRONI_NAME: patroni1
+
+  patroni2:
+      image: ${PATRONI_TEST_IMAGE:-patroni}
+      networks: [ aquapark ]
+      env_file: patroni/docker/patroni.env
+      hostname: patroni2
+      container_name: patroni2
+      environment:
+          <<: *haproxy_env
+          PATRONI_NAME: patroni2
+
+  patroni3:
+      image: ${PATRONI_TEST_IMAGE:-patroni}
+      networks: [ aquapark ]
+      env_file: patroni/docker/patroni.env
+      hostname: patroni3
+      container_name: patroni3
+      environment:
+          <<: *haproxy_env
+          PATRONI_NAME: patroni3
+
+
+volumes:
+  migrations:
+  db_volume:

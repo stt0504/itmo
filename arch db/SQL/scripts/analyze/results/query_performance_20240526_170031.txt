@@ -1,0 +1,50 @@
+Query: SELECT Instructor_ID, Name, Surname
+                        FROM Instructor_partition
+                        WHERE Instructor_ID NOT IN (SELECT Instructor_ID
+                                       FROM Instructor_Schedule
+                                       WHERE Day = %s);
+Best Case: 2278.82
+Average Case: 2278.82
+Worst Case: 2278.82
+
+Query: SELECT
+                            Instructor_partition.Instructor_ID,
+                            Instructor_partition.Name,
+                            Instructor_partition.Surname,
+                            COUNT(Lesson_Appointment.Appointment_ID) AS lesson_count
+                         FROM
+                            Instructor_partition
+                         LEFT JOIN
+                            Lesson_Appointment ON Instructor_partition.Instructor_ID = Lesson_Appointment.Instructor_ID
+                         GROUP BY
+                            Instructor_partition.Instructor_ID, Instructor_partition.Name, Instructor_partition.Surname;
+Best Case: 13038.47
+Average Case: 13038.47
+Worst Case: 13038.47
+
+Query: SELECT
+                            Ticket.Ticket_ID,
+                            Ticket.Start_date,
+                            Ticket.Finish_date
+                         FROM
+                            Ticket
+                         WHERE
+                            Ticket.Visitor_ID = %s
+                            AND Ticket.Finish_date > CURRENT_DATE;
+Best Case: 19.51
+Average Case: 19.509999999999998
+Worst Case: 19.51
+
+Query: SELECT EXTRACT(DOW FROM Appointment.Start_time) AS day_of_week,
+                               AVG(Visitor.Visitor_ID) AS average_visitors
+                        FROM Appointment
+                                 JOIN
+                             Ticket ON Appointment.Ticket_ID = Ticket.Ticket_ID
+                                 JOIN
+                             Visitor ON Ticket.Visitor_ID = Visitor.Visitor_ID
+                        WHERE Appointment.Start_time >= CURRENT_DATE - INTERVAL '2 years'
+                        GROUP BY day_of_week;
+Best Case: 2871.72
+Average Case: 2871.7200000000003
+Worst Case: 2871.72
+

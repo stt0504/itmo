@@ -1,0 +1,26 @@
+version: "3"
+
+networks:
+  app-tier:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  postgres:
+    container_name: aquapark
+    image: postgres:14.5
+    hostname: postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./File1.sql:/docker-entrypoint-initdb.d/File1.sql
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=aquapark
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    networks:
+      - app-tier

@@ -1,0 +1,50 @@
+Query: SELECT Instructor_ID, Name, Surname
+                        FROM Instructor
+                        WHERE Instructor_ID NOT IN (SELECT Instructor_ID
+                                       FROM Instructor_Schedule
+                                       WHERE Day = %s);
+Best Case: 1996.46
+Average Case: 1996.4599999999996
+Worst Case: 1996.46
+
+Query: SELECT
+                            Instructor.Instructor_ID,
+                            Instructor.Name,
+                            Instructor.Surname,
+                            COUNT(Lesson_Appointment.Appointment_ID) AS lesson_count
+                         FROM
+                            Instructor
+                         LEFT JOIN
+                            Lesson_Appointment ON Instructor.Instructor_ID = Lesson_Appointment.Instructor_ID
+                         GROUP BY
+                            Instructor.Instructor_ID, Instructor.Name, Instructor.Surname;
+Best Case: 11499.57
+Average Case: 11499.570000000002
+Worst Case: 11499.57
+
+Query: SELECT
+                            Ticket.Ticket_ID,
+                            Ticket.Start_date,
+                            Ticket.Finish_date
+                         FROM
+                            Ticket
+                         WHERE
+                            Ticket.Visitor_ID = %s
+                            AND Ticket.Finish_date > CURRENT_DATE;
+Best Case: 19.51
+Average Case: 19.509999999999998
+Worst Case: 19.51
+
+Query: SELECT EXTRACT(DOW FROM Appointment_partition.Start_time) AS day_of_week,
+                               AVG(Visitor.Visitor_ID) AS average_visitors
+                        FROM Appointment_partition
+                                 JOIN
+                             Ticket ON Appointment_partition.Ticket_ID = Ticket.Ticket_ID
+                                 JOIN
+                             Visitor ON Ticket.Visitor_ID = Visitor.Visitor_ID
+                        WHERE Appointment_partition.Start_time >= CURRENT_DATE - INTERVAL '2 years'
+                        GROUP BY day_of_week;
+Best Case: 4102.19
+Average Case: 4102.1900000000005
+Worst Case: 4102.19
+

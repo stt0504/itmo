@@ -1,0 +1,50 @@
+Query: SELECT Instructor_ID, Name, Surname
+                        FROM Instructor
+                        WHERE Instructor_ID NOT IN (SELECT Instructor_ID
+                                       FROM Instructor_Schedule
+                                       WHERE Day = %s);
+Best Case: 1996.46
+Average Case: 1996.4599999999996
+Worst Case: 1996.46
+
+Query: SELECT
+                            Instructor.Instructor_ID,
+                            Instructor.Name,
+                            Instructor.Surname,
+                            COUNT(Lesson_Appointment.Appointment_ID) AS lesson_count
+                         FROM
+                            Instructor
+                         LEFT JOIN
+                            Lesson_Appointment ON Instructor.Instructor_ID = Lesson_Appointment.Instructor_ID
+                         GROUP BY
+                            Instructor.Instructor_ID, Instructor.Name, Instructor.Surname;
+Best Case: 11499.57
+Average Case: 11499.570000000002
+Worst Case: 11499.57
+
+Query: SELECT
+                            Ticket_ID,
+                            Start_date,
+                            Finish_date
+                         FROM
+                            Ticket_partition
+                         WHERE
+                            Visitor_ID = %s
+                            AND Finish_date > CURRENT_DATE;
+Best Case: 384.59
+Average Case: 384.59000000000003
+Worst Case: 384.59
+
+Query: SELECT EXTRACT(DOW FROM Appointment.Start_time) AS day_of_week,
+                               AVG(Visitor.Visitor_ID) AS average_visitors
+                        FROM Appointment
+                                 JOIN
+                             Ticket ON Appointment.Ticket_ID = Ticket.Ticket_ID
+                                 JOIN
+                             Visitor ON Ticket.Visitor_ID = Visitor.Visitor_ID
+                        WHERE Appointment.Start_time >= CURRENT_DATE - INTERVAL '2 years'
+                        GROUP BY day_of_week;
+Best Case: 2867.25
+Average Case: 2867.25
+Worst Case: 2867.25
+
